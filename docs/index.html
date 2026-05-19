@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pi-radar — AI trends radar for your terminal</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0c0c0c;
+      --surface:  #111111;
+      --border:   #1e1e1e;
+      --green:    #3ddc84;
+      --green-dim:#1a5c38;
+      --text:     #d4d4d4;
+      --muted:    #555;
+      --white:    #f0f0f0;
+      --font:     "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ── */
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+    /* ── Nav ── */
+    nav {
+      border-bottom: 1px solid var(--border);
+      padding: 18px 0;
+    }
+    nav .wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo { color: var(--green); font-size: 15px; letter-spacing: .04em; text-decoration: none; }
+    .logo span { color: var(--muted); }
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 12px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      transition: color .15s;
+    }
+    nav a:hover { color: var(--white); }
+    .nav-links { display: flex; gap: 28px; }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 96px 0 72px;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-label {
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 700;
+      color: var(--white);
+      line-height: 1.2;
+      letter-spacing: -.01em;
+      margin-bottom: 18px;
+    }
+    h1 em { color: var(--green); font-style: normal; }
+    .hero-sub {
+      font-size: 15px;
+      color: var(--muted);
+      max-width: 480px;
+      margin-bottom: 40px;
+    }
+    .install-block {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 18px;
+      font-size: 13px;
+    }
+    .install-block .prompt { color: var(--green-dim); }
+    .install-block code { color: var(--white); }
+    .copy-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: var(--font);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 3px;
+      transition: color .15s, background .15s;
+    }
+    .copy-btn:hover { color: var(--white); background: var(--border); }
+    .copy-btn.copied { color: var(--green); }
+
+    /* ── Terminal ── */
+    .terminal-wrap {
+      padding: 56px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .terminal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .terminal-bar {
+      background: #161616;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #febc2e; }
+    .dot-g { background: #28c840; }
+    .terminal-title {
+      margin-left: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: .04em;
+    }
+    .terminal-body {
+      padding: 20px 22px;
+      font-size: 12.5px;
+      line-height: 1.65;
+      overflow-x: auto;
+    }
+    .t-prompt { color: var(--green); }
+    .t-cmd    { color: var(--white); }
+    .t-dim    { color: var(--muted); }
+    .t-head   { color: var(--green); font-weight: 700; margin: 14px 0 6px; }
+    .t-row    { display: flex; gap: 12px; padding: 3px 0; border-bottom: 1px solid #161616; }
+    .t-num    { color: var(--muted); min-width: 18px; }
+    .t-title  { color: var(--white); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .t-src    { color: #888; min-width: 52px; }
+    .t-sig    { color: var(--green); min-width: 60px; text-align: right; }
+    .t-why    { color: #aaa; min-width: 160px; font-size: 11.5px; }
+    .t-vibe   { color: var(--muted); margin-top: 14px; font-style: italic; }
+    .cursor   {
+      display: inline-block;
+      width: 8px; height: 13px;
+      background: var(--green);
+      vertical-align: middle;
+      animation: blink 1.1s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── Sections ── */
+    section { padding: 56px 0; border-bottom: 1px solid var(--border); }
+    h2 {
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 28px;
+    }
+
+    /* ── Commands ── */
+    .cmd-list { display: flex; flex-direction: column; gap: 2px; }
+    .cmd-item {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 20px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .cmd-item:last-child { border-bottom: none; }
+    .cmd-name { color: var(--white); font-size: 13px; }
+    .cmd-desc { color: var(--muted); font-size: 13px; }
+
+    /* ── How it works ── */
+    .steps { display: flex; flex-direction: column; gap: 18px; }
+    .step {
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .step-n {
+      color: var(--green-dim);
+      font-size: 13px;
+      padding-top: 1px;
+    }
+    .step-text { color: var(--text); font-size: 13px; }
+    .step-text strong { color: var(--white); }
+
+    /* ── Sources ── */
+    .source-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 5px 12px;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    /* ── Footer ── */
+    footer {
+      padding: 36px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    footer a { color: var(--muted); text-decoration: none; transition: color .15s; }
+    footer a:hover { color: var(--white); }
+
+    @media (max-width: 560px) {
+      .cmd-item { grid-template-columns: 1fr; gap: 4px; }
+      .t-why, .t-sig { display: none; }
+      footer { flex-direction: column; gap: 10px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="logo" href="#">pi<span>-</span>radar</a>
+    <div class="nav-links">
+      <a href="#commands">commands</a>
+      <a href="#sources">sources</a>
+      <a href="https://github.com/Bunchhieng/pi-radar" target="_blank">github</a>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="hero-label">pi extension</p>
+    <h1>Your terminal.<br><em>AI trends radar.</em></h1>
+    <p class="hero-sub">
+      Pulls from HN, arXiv, GitHub, HuggingFace, and Reddit.
+      Deduplicates, scores against your profile, surfaces what matters.
+      One command.
+    </p>
+    <div class="install-block">
+      <span class="prompt">$</span>
+      <code id="install-cmd">pi install git:github.com/Bunchhieng/pi-radar</code>
+      <button class="copy-btn" id="copy-btn" onclick="copyInstall()">copy</button>
+    </div>
+  </div>
+</div>
+
+<div class="terminal-wrap">
+  <div class="wrap">
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+        <span class="terminal-title">pi — /radar digest</span>
+      </div>
+      <div class="terminal-body">
+        <div><span class="t-prompt">›</span> <span class="t-cmd">/radar digest</span></div>
+        <div class="t-dim">✔ 47 cached — ranking…</div>
+        <br>
+        <div class="t-head">## Radar · May 19, 2025</div>
+        <br>
+        <div class="t-row" style="color:var(--muted); font-size:11px;">
+          <span class="t-num">#</span>
+          <span class="t-title">Title</span>
+          <span class="t-src">Source</span>
+          <span class="t-sig">Signal</span>
+          <span class="t-why">Why it matters to you</span>
+        </div>
+        <div class="t-row">
+          <span class="t-num">1</span>
+          <span class="t-title">Llama 3.1 405B — fully open weights released</span>
+          <span class="t-src">hn</span>
+          <span class="t-sig">3.2k pts</span>
+          <span class="t-why">Matches your RAG + agent stack interest</span>
+        </div>
+        <div class="t-row">
+          <span class="t-num">2</span>
+          <span class="t-title">DSPy: Compiling LM Programs with Typed Predictors</span>
+          <span class="t-src">arxiv</span>
+          <span class="t-sig">cs.CL</span>
+          <span class="t-why">Evals + structured outputs — your wheelhouse</span>
+        </div>
+        <div class="t-row">
+          <span class="t-num">3</span>
+          <span class="t-title">microsoft/graphrag: Graph-based RAG</span>
+          <span class="t-src">github</span>
+          <span class="t-sig">★ 18.4k</span>
+          <span class="t-why">Direct overlap with retrieval work</span>
+        </div>
+        <div class="t-row">
+          <span class="t-num">4</span>
+          <span class="t-title">Qwen2-72B tops MMLU, beats GPT-4-Turbo on coding</span>
+          <span class="t-src">reddit</span>
+          <span class="t-sig">↑ 2.1k</span>
+          <span class="t-why">Open model you can self-host</span>
+        </div>
+        <div class="t-row">
+          <span class="t-num">5</span>
+          <span class="t-title">smolagents: Hugging Face's minimal agent library</span>
+          <span class="t-src">hf</span>
+          <span class="t-sig">♥ 4.2k</span>
+          <span class="t-why">Agent frameworks you track</span>
+        </div>
+        <br>
+        <div class="t-vibe">&gt; <strong>Vibe:</strong> Open weights week — the gap with closed models is closing fast.</div>
+        <br>
+        <div><span class="t-prompt">›</span> <span class="cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section id="how">
+  <div class="wrap">
+    <h2>How it works</h2>
+    <div class="steps">
+      <div class="step">
+        <span class="step-n">01</span>
+        <p class="step-text"><strong>Fetch.</strong> All sources hit in parallel — HN, arXiv, GitHub, HuggingFace, Reddit. Cached in a local SQLite DB at <code>~/.pi/radar/radar.db</code>.</p>
+      </div>
+      <div class="step">
+        <span class="step-n">02</span>
+        <p class="step-text"><strong>Deduplicate.</strong> Same article from multiple sources gets merged into one item. Extra source refs tracked automatically.</p>
+      </div>
+      <div class="step">
+        <span class="step-n">03</span>
+        <p class="step-text"><strong>Pre-score.</strong> Items ranked by recency × signal strength in TypeScript before touching the LLM. Only the top 20 candidates go forward.</p>
+      </div>
+      <div class="step">
+        <span class="step-n">04</span>
+        <p class="step-text"><strong>Rank.</strong> The LLM reads your <code>~/.pi/radar/profile.md</code> and picks the 8 most relevant items. It only ranks — no fetching, no tool calls.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="commands">
+  <div class="wrap">
+    <h2>Commands</h2>
+    <div class="cmd-list">
+      <div class="cmd-item">
+        <span class="cmd-name">/radar digest</span>
+        <span class="cmd-desc">Top 8 items from the last 24h, ranked for your profile</span>
+      </div>
+      <div class="cmd-item">
+        <span class="cmd-name">/radar trending</span>
+        <span class="cmd-desc">Fastest-rising items by metric velocity</span>
+      </div>
+      <div class="cmd-item">
+        <span class="cmd-name">/radar explain &lt;id&gt;</span>
+        <span class="cmd-desc">Deep dive — what it is, why it matters, 3 takeaways</span>
+      </div>
+      <div class="cmd-item">
+        <span class="cmd-name">/radar try &lt;repo&gt;</span>
+        <span class="cmd-desc">Generates install/run steps for a GitHub repo</span>
+      </div>
+      <div class="cmd-item">
+        <span class="cmd-name">/radar mute &lt;pattern&gt;</span>
+        <span class="cmd-desc">Silence a domain, author, source, or topic</span>
+      </div>
+      <div class="cmd-item">
+        <span class="cmd-name">/radar stats</span>
+        <span class="cmd-desc">DB stats — item counts, sources, newest entry</span>
+      </div>
+    </div>
+    <p style="margin-top:20px; font-size:12px; color:var(--muted);">
+      Mute patterns: <code>domain:medium.com</code> &nbsp;·&nbsp; <code>author:someone</code> &nbsp;·&nbsp; <code>source:reddit</code> &nbsp;·&nbsp; bare topic strings
+    </p>
+  </div>
+</section>
+
+<section id="sources">
+  <div class="wrap">
+    <h2>Sources</h2>
+    <div class="source-grid">
+      <span class="pill">Hacker News</span>
+      <span class="pill">arXiv cs.AI · cs.CL · cs.LG</span>
+      <span class="pill">GitHub Trending</span>
+      <span class="pill">HuggingFace Models</span>
+      <span class="pill">HuggingFace Datasets</span>
+      <span class="pill">r/LocalLLaMA</span>
+      <span class="pill">r/MachineLearning</span>
+      <span class="pill">r/singularity</span>
+      <span class="pill">r/OpenAI</span>
+      <span class="pill">any RSS feed</span>
+    </div>
+    <p style="margin-top:20px; font-size:12px; color:var(--muted);">
+      Set <code>GITHUB_TOKEN</code> for higher GitHub API rate limits.
+    </p>
+  </div>
+</section>
+
+<div class="wrap">
+  <footer>
+    <span>pi-radar — open source</span>
+    <div style="display:flex; gap:20px;">
+      <a href="https://github.com/Bunchhieng/pi-radar" target="_blank">github</a>
+      <a href="https://github.com/Bunchhieng/pi-radar/blob/master/README.md" target="_blank">readme</a>
+      <a href="https://github.com/badlogic/pi-mono" target="_blank">pi-mono</a>
+    </div>
+  </footer>
+</div>
+
+<script>
+  function copyInstall() {
+    const text = document.getElementById('install-cmd').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copy-btn');
+      btn.textContent = 'copied';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+</script>
+
+</body>
+</html>
