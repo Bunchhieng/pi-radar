@@ -112,8 +112,11 @@ export default function (pi: ExtensionAPI) {
 						tags: i.tags?.slice(0, 5),
 					}));
 
-					pi.sendUserMessage(
-						`You are a terse AI trends editor. Today is ${today()}.
+					pi.sendMessage(
+						{
+							customType: "radar_digest_context",
+							display: false,
+							content: `You are a terse AI trends editor. Today is ${today()}.
 
 My profile:
 ${profile}
@@ -135,7 +138,10 @@ Task:
 > **Vibe:** one sentence.
 
 3. After the table, call radar_mark_seen with the 8 item IDs and action="shown". Output nothing after the tool call.`,
+						},
+						{ deliverAs: "nextTurn" },
 					);
+					pi.sendUserMessage(`/radar digest — ${items.length} candidates, ${today()}`);
 					break;
 				}
 
@@ -162,8 +168,11 @@ Task:
 						delta_per_hour: Math.round(v.max_delta_per_hour * 10) / 10,
 					}));
 
-					pi.sendUserMessage(
-						`Output ONLY this markdown — no commentary:
+					pi.sendMessage(
+						{
+							customType: "radar_trending_context",
+							display: false,
+							content: `Output ONLY this markdown — no commentary:
 
 ## Trending · ${today()}
 
@@ -172,7 +181,10 @@ Task:
 ${top.map((v, i) => `| ${i + 1} | [${v.title.slice(0, 60)}](${v.url}) | ${v.source} | ${v.top_metric?.[0] ?? "—"} | +${v.delta_per_hour} |`).join("\n")}
 
 Data: ${JSON.stringify(top)}`,
+						},
+						{ deliverAs: "nextTurn" },
 					);
+					pi.sendUserMessage(`/radar trending — ${top.length} items, ${today()}`);
 					break;
 				}
 
