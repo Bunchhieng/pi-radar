@@ -15,7 +15,15 @@ The LLM only ranks and formats. All fetching, dedup, and caching happens in Type
 ## Install
 
 ```bash
-git clone https://github.com/yourusername/pi-radar
+pi install git:github.com/Bunchhieng/pi-radar
+```
+
+Then start (or restart) `pi`.
+
+### Dev install
+
+```bash
+git clone git@github.com:Bunchhieng/pi-radar.git
 cd pi-radar
 pnpm install
 
@@ -24,8 +32,6 @@ ln -s $(pwd)/packages/radar-sources  ~/.pi/agent/extensions/radar-sources
 ln -s $(pwd)/packages/radar-profile  ~/.pi/agent/extensions/radar-profile
 ln -s $(pwd)/packages/radar-commands ~/.pi/agent/extensions/radar-commands
 ```
-
-Then start `pi`.
 
 ## Commands
 
@@ -55,5 +61,5 @@ Set `GITHUB_TOKEN` in your environment for higher GitHub API rate limits.
 ## Dev
 
 ```bash
-pnpm test   # 12 unit tests
+pnpm test   # 14 unit tests
 ```
