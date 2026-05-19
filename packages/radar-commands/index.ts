@@ -18,7 +18,7 @@ function since24h(): Date {
 	return new Date(Date.now() - 24 * 3600 * 1000);
 }
 
-async function fetchAllSources(limit = 25): Promise<RadarItem[]> {
+async function fetchAllSources(limit = 20): Promise<RadarItem[]> {
 	const since = since24h();
 	const results = await Promise.allSettled([
 		fetchHN(limit, since, "AI OR LLM OR GPT OR agent"),
@@ -44,6 +44,14 @@ function fmtMetric(item: RadarItem): string {
 
 function today(): string {
 	return new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function scoreItem(item: RadarItem): number {
+	const ageHours = Math.max((Date.now() - item.published_at) / 3_600_000, 0.01);
+	const recency = Math.exp(-ageHours / 12); // 12h half-life
+	const m = item.metrics ?? {};
+	const signal = Math.max(m.points ?? 0, m.stars ?? 0, m.score ?? 0, m.likes ?? 0);
+	return recency * (1 + Math.log1p(signal));
 }
 
 function parseMuteArg(arg: string): { pattern: string; kind: string } {
@@ -82,9 +90,8 @@ export default function (pi: ExtensionAPI) {
 					});
 
 					if (items.length < 25) {
-						ctx.ui.notify(`${items.length} cached — fetching all sources in parallel…`, "info");
-						const fresh = await fetchAllSources(30);
-						ctx.ui.notify(`Fetched ${fresh.length} items, storing…`, "info");
+						ctx.ui.notify(`${items.length} cached — fetching sources…`, "info");
+						const fresh = await fetchAllSources(20);
 						if (fresh.length > 0) {
 							remember(db, fresh);
 							items = query(db, {
@@ -101,15 +108,24 @@ export default function (pi: ExtensionAPI) {
 						return;
 					}
 
+					// Pre-score by recency × signal, cap at 20 candidates
+					const candidates = items
+						.map((i) => ({ item: i, score: scoreItem(i) }))
+						.sort((a, b) => b.score - a.score)
+						.slice(0, 20)
+						.map((s) => s.item);
+
+					// Mark seen now — no LLM tool call needed
+					markSeen(db, candidates.map((i) => i.id), "shown");
+
 					const profile = readProfile();
-					const slim = items.map((i) => ({
+					const slim = candidates.map((i) => ({
 						id: i.id,
 						title: i.title,
 						url: i.url,
 						source: i.source,
 						signal: fmtMetric(i),
-						summary: i.summary?.slice(0, 150),
-						tags: i.tags?.slice(0, 5),
+						summary: i.summary?.slice(0, 80),
 					}));
 
 					pi.sendMessage(
@@ -121,12 +137,10 @@ export default function (pi: ExtensionAPI) {
 My profile:
 ${profile}
 
-${items.length} candidate items:
+${candidates.length} candidate items (pre-scored by recency × signal):
 ${JSON.stringify(slim)}
 
-Task:
-1. Pick the 8 most relevant items for this profile. Skip anything matching Skip/Hard mutes.
-2. Output ONLY the following markdown — no preamble, no commentary, no tool call narration:
+Output ONLY this markdown — no preamble, no tool calls, no commentary:
 
 ## Radar · ${today()}
 
@@ -135,13 +149,11 @@ Task:
 | 1 | [title](url) | src | signal | one sentence referencing my profile |
 | 2 | … | … | … | … |
 
-> **Vibe:** one sentence.
-
-3. After the table, call radar_mark_seen with the 8 item IDs and action="shown". Output nothing after the tool call.`,
+Pick the 8 most relevant for this profile. End with: > **Vibe:** one sentence.`,
 						},
 						{ deliverAs: "nextTurn" },
 					);
-					pi.sendUserMessage(`/radar digest — ${items.length} candidates, ${today()}`);
+					pi.sendUserMessage(`/radar digest — ${candidates.length} candidates, ${today()}`);
 					break;
 				}
 
