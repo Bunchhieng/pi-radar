@@ -1,0 +1,30 @@
+node_modules/
+dist/
+*.js.map
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test artifacts
+coverage/
+.vitest/
+
+# pnpm
+.pnpm-store/

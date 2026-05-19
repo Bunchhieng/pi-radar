@@ -1,0 +1,11 @@
+{
+  "name": "@radar/types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "scripts": {
+    "build": "echo 'types only'",
+    "check": "tsc --noEmit"
+  }
+}
